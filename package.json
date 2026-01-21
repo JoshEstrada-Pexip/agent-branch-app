@@ -12,10 +12,10 @@
     "deploy": "npm run build && gh-pages -d dist -b gh-pages"
   },
   "dependencies": {
-    "purecloud-platform-client-v2": "^243.0.0",
+    "purecloud-platform-client-v2": "^217.0.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "uuid": "^13.0.0"
+    "uuid": "^11.0.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
@@ -34,3 +34,4 @@
     "vite": "^7.1.7"
   }
 }
+
