@@ -1,113 +1,181 @@
 /* ───────────────────────────────────────────────────────────────────────────────
-   File: src/theme.css (global styles; dark theme + Genesys orange accents)
+   File: src/theme.css
+   Theme: RBFCU Enterprise (Blue + Orange Accent)
    ─────────────────────────────────────────────────────────────────────────────── */
-   :root {
-    --bg: #0B0B0D;
-    --fg: #F4F6F8;
-    --muted: #9AA0A6;
-    --card: #141518;
-    --ring: #2A2D33;
-    --accent: #FF4F1F; /* Genesys orange */
-    --accent-600: #E2471C;
-    --accent-700: #C63E18;
-  }
-  
-  * { box-sizing: border-box; }
-  html, body, #root { height: 100%; }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--fg);
-    font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial;
-  }
-  button, input, select { font: inherit; color: inherit; }
-  
-  .container { max-width: 880px; margin: 0 auto; padding: 24px; }
-  .card {
-    background: var(--card);
-    border: 1px solid var(--ring);
-    border-radius: 16px;
-    padding: 16px;
-    box-shadow: 0 6px 20px rgba(0,0,0,.25);
-  }
-  .row { display: flex; gap: 12px; align-items: center; }
-  .grid { display: grid; gap: 12px; }
-  .label { font-size: 12px; color: var(--muted); }
-  .input, .select {
-    width: 100%;
-    background: #0F1013;
-    border: 1px solid var(--ring);
-    border-radius: 12px;
-    padding: 10px 12px;
-    outline: none;
-  }
-  .input:focus, .select:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(255,79,31,.15);
-  }
-  .button {
-    background: var(--accent);
-    border: none;
-    border-radius: 12px;
-    padding: 10px 14px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .button:active { transform: translateY(1px); }
-  .pill {
-    display: inline-block;
-    border: 1px solid var(--ring);
-    border-radius: 999px;
-    padding: 4px 10px;
-  }
-  .kbd {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    font-size: 12px;
-    background: #0F1013;
-    padding: 2px 6px;
-    border-radius: 6px;
-    border: 1px solid var(--ring);
-  }
-  
-  /* spacing utilities */
-  .gap-16 { gap: 16px; }
-  .gap-12 { gap: 12px; }
-  .gap-8 { gap: 8px; }
-  .gap-6 { gap: 6px; }
-  
-  /* layout utils */
-  .justify-between { justify-content: space-between; }
-  .justify-end { justify-content: flex-end; }
-  .row.gap-8 { gap: 8px; }
-  
-  /* headings */
-  .title { font-size: 20px; font-weight: 700; }
-  .section-title { font-weight: 600; }
-  
-  /* variants */
-  .error-card { border-color: #3b0b0b; color: #ffb4b4; }
-  
-  /* accent pill */
-  .pill-accent { border-color: var(--accent); color: var(--accent); }
 
-  /* Titles */
-.title-brand { color: var(--text-primary); }
+:root {
+  /* Brand Colors */
+  --rbfcu-blue: #003A8F;
+  --rbfcu-blue-dark: #002B6A;
+  --rbfcu-orange: #F26522;
+  --rbfcu-orange-dark: #D9561C;
 
-/* Button variants (no inline styles) */
+  /* Core UI */
+  --bg: linear-gradient(180deg, #003A8F 0%, #002B6A 100%);
+  --fg: #1F2933;
+  --muted: #6B7280;
+
+  --card: #F4F6F8;
+  --border: #D1D5DB;
+
+  /* Focus / ring */
+  --ring: rgba(242, 101, 34, 0.35);
+
+  /* Accent */
+  --accent: var(--rbfcu-orange);
+  --accent-600: var(--rbfcu-orange-dark);
+
+  --text-on-accent: #FFFFFF;
+  --text-primary: #1F2933;
+}
+
+/* Reset */
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial;
+}
+
+button, input, select {
+  font: inherit;
+  color: inherit;
+}
+
+/* Layout */
+.container {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* Card */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.15);
+}
+
+/* Layout helpers */
+.row { display: flex; gap: 12px; align-items: center; }
+.grid { display: grid; gap: 12px; }
+
+.justify-between { justify-content: space-between; }
+.justify-end { justify-content: flex-end; }
+
+/* Typography */
+.label {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.section-title {
+  font-weight: 600;
+  color: var(--rbfcu-blue);
+}
+
+/* Inputs */
+.input,
+.select {
+  width: 100%;
+  background: #FFFFFF;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  outline: none;
+}
+
+.input:hover,
+.select:hover {
+  border-color: var(--rbfcu-blue);
+}
+
+.input:focus,
+.select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+/* Pills */
+.pill {
+  display: inline-block;
+  border: 1px solid #BBD4FF;
+  background: #E6F0FF;
+  color: var(--rbfcu-blue);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+/* Accent pill (rare use only) */
+.pill-accent {
+  background: #FFF3EC;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Buttons */
+.button {
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: background .15s ease, transform .05s ease;
+}
+
+.button:active {
+  transform: translateY(1px);
+}
+
+/* Primary CTA */
 .button-primary {
   background: var(--accent);
   color: var(--text-on-accent);
 }
 
-.button-secondary {
-  background: var(--ring);
-  color: var(--text-primary);
-  border: 1px solid var(--muted);
+.button-primary:hover {
+  background: var(--accent-600);
 }
 
+/* Secondary / Reset */
+.button-secondary,
 .button-reset {
-  background: var(--ring);
-  color: var(--text-primary);
-  border: 1px solid var(--muted);
+  background: var(--rbfcu-blue-dark);
+  color: #FFFFFF;
 }
-  
+
+.button-secondary:hover,
+.button-reset:hover {
+  background: var(--rbfcu-blue);
+}
+
+/* Error */
+.error-card {
+  border-color: #FCA5A5;
+  background: #FEF2F2;
+  color: #991B1B;
+}
+
+/* Utility spacing */
+.gap-16 { gap: 16px; }
+.gap-12 { gap: 12px; }
+.gap-8 { gap: 8px; }
+.gap-6 { gap: 6px; }
+
+/* Brand title */
+.title-brand {
+  color: #FFFFFF;
+}
