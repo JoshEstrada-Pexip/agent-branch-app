@@ -269,7 +269,16 @@ function dedupeAndSort(list: DialOption[]): DialOption[] {
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
-// External Contacts fetch (two-pass: with org filter, then fallback without)
+// External Contacts fetch (server-side q filter per Genesys recommendation)
+// ───────────────────────────────────────────────────────────────────────────────
+// Genesys instructs us to pass a quoted exact-phrase to the q parameter so the
+// API returns only contacts in the named External Organization. This avoids the
+// ~1k-contact tenant-wide ceiling that the previous client-side filter hit
+// once total external-contact volume crossed that threshold.
+//
+// The client-side org-name match is retained as a defensive secondary filter
+// in case `q` ever returns a contact whose linked org name does not exactly
+// match the configured value (e.g. token-only fallback in the search index).
 // ───────────────────────────────────────────────────────────────────────────────
 async function fetchFromExternalContacts(): Promise<DialOption[]> {
   await loginGenesys();
@@ -283,83 +292,81 @@ async function fetchFromExternalContacts(): Promise<DialOption[]> {
     ? String(MasterVariables.genesys.externalSourceId || "").trim()
     : "";
 
-  // Organization filter (pass 1)
-  const useOrgFilterInitial = Boolean(MasterVariables.genesys.filterExternalContacts);
+  // Organization filter
+  const useOrgFilter = Boolean(MasterVariables.genesys.filterExternalContacts);
   const orgName = String(MasterVariables.genesys.externalOrganizationName || "").trim();
 
-  async function gather(useOrgFilter: boolean): Promise<DialOption[]> {
-    let page = 1;
-    const options: DialOption[] = [];
+  // Quote the org name to request an exact-phrase match from Genesys's search index.
+  const qParam = useOrgFilter && orgName ? `"${orgName}"` : "";
 
-    // diagnostics
-    let total = 0, kept = 0, skippedLabel = 0, skippedValue = 0, skippedOrg = 0, skippedSource = 0;
+  let page = 1;
+  const options: DialOption[] = [];
 
-    for (let i = 0; i < 50; i++) {
-      const pageDataUnknown = await (ec as unknown as {
-        getExternalcontactsContacts: (p?: { pageNumber?: number; pageSize?: number }) => Promise<unknown>;
-      }).getExternalcontactsContacts({ pageNumber: page, pageSize });
+  // diagnostics
+  let total = 0, kept = 0, skippedLabel = 0, skippedValue = 0, skippedOrg = 0, skippedSource = 0;
 
-      if (!isExternalContactsPage(pageDataUnknown)) {
-        console.warn("[agent-dial]", "external-contacts: unexpected page shape", pageDataUnknown);
-        break;
-      }
+  for (let i = 0; i < 50; i++) {
+    const pageDataUnknown = await (ec as unknown as {
+      getExternalcontactsContacts: (p?: { pageNumber?: number; pageSize?: number; q?: string }) => Promise<unknown>;
+    }).getExternalcontactsContacts(
+      qParam
+        ? { pageNumber: page, pageSize, q: qParam }
+        : { pageNumber: page, pageSize }
+    );
 
-      const entities = pageDataUnknown.entities ?? [];
-      const pageCount = pageDataUnknown.pageCount ?? 1;
-
-      console.info("[agent-dial]", "external-contacts page", {
-        page,
-        pageCount,
-        entities: entities.length,
-        sampleKeys: entities[0] ? Object.keys(entities[0]).sort() : [],
-        sourceFilter: applySourceFilter ? filterSourceId : "(disabled)",
-        orgFilter: useOrgFilter ? (orgName || "(empty)") : "(disabled)",
-      });
-
-      if (entities.length === 0) break;
-
-      for (const c of entities) {
-        total++;
-
-        if (filterSourceId && !matchesExternalSource(c, filterSourceId)) { skippedSource++; continue; }
-        if (useOrgFilter && !matchesOrganizationName(c, orgName)) { skippedOrg++; continue; }
-
-        const label = buildLabel(c);
-
-        const fromWorkPhone = pickFromWorkPhone(c.workPhone);
-        const fromNumbersPreferred = pickWorkFromPhoneNumbers(c.phoneNumbers);
-        const value = (fromWorkPhone || fromNumbersPreferred || "").trim();
-
-        if (!label) { skippedLabel++; continue; }
-        if (!value) { skippedValue++; continue; }
-
-        options.push({ label, value });
-        kept++;
-      }
-
-      if (page >= pageCount) break;
-      page++;
+    if (!isExternalContactsPage(pageDataUnknown)) {
+      console.warn("[agent-dial]", "external-contacts: unexpected page shape", pageDataUnknown);
+      break;
     }
 
-    console.info("[agent-dial]", "external-contacts summary", {
-      total, kept, skippedLabel, skippedValue, skippedOrg, skippedSource,
-      orgFilterApplied: useOrgFilter, orgName: useOrgFilter ? orgName || "(empty)" : undefined
+    const entities = pageDataUnknown.entities ?? [];
+    const pageCount = pageDataUnknown.pageCount ?? 1;
+
+    console.info("[agent-dial]", "external-contacts page", {
+      page,
+      pageCount,
+      entities: entities.length,
+      sampleKeys: entities[0] ? Object.keys(entities[0]).sort() : [],
+      sourceFilter: applySourceFilter ? filterSourceId : "(disabled)",
+      orgFilter: useOrgFilter ? (orgName || "(empty)") : "(disabled)",
+      q: qParam || "(none)",
     });
-    console.info("[agent-dial]", "external-contacts options", { count: options.length });
 
-    return options;
+    if (entities.length === 0) break;
+
+    for (const c of entities) {
+      total++;
+
+      if (filterSourceId && !matchesExternalSource(c, filterSourceId)) { skippedSource++; continue; }
+      // Defensive secondary check: even with server-side q, drop anything whose
+      // linked org name does not exactly match the configured value.
+      if (useOrgFilter && !matchesOrganizationName(c, orgName)) { skippedOrg++; continue; }
+
+      const label = buildLabel(c);
+
+      const fromWorkPhone = pickFromWorkPhone(c.workPhone);
+      const fromNumbersPreferred = pickWorkFromPhoneNumbers(c.phoneNumbers);
+      const value = (fromWorkPhone || fromNumbersPreferred || "").trim();
+
+      if (!label) { skippedLabel++; continue; }
+      if (!value) { skippedValue++; continue; }
+
+      options.push({ label, value });
+      kept++;
+    }
+
+    if (page >= pageCount) break;
+    page++;
   }
 
-  // Pass 1: org filter (if enabled)
-  const pass1 = await gather(useOrgFilterInitial);
-  if (pass1.length > 0 || !useOrgFilterInitial) {
-    return dedupeAndSort(pass1);
-  }
+  console.info("[agent-dial]", "external-contacts summary", {
+    total, kept, skippedLabel, skippedValue, skippedOrg, skippedSource,
+    orgFilterApplied: useOrgFilter, orgName: useOrgFilter ? orgName || "(empty)" : undefined,
+    q: qParam || "(none)",
+  });
+  console.info("[agent-dial]", "external-contacts options", { count: options.length });
 
-  // Pass 2: fallback without org filter
-  console.warn("[agent-dial]", "org filter returned 0 results — retrying without org filter");
-  const pass2 = await gather(false);
-  return dedupeAndSort(pass2);
+  return dedupeAndSort(options);
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
