@@ -245,14 +245,6 @@ function matchesExternalSource(c: ExternalContact, sourceId: string): boolean {
   return false;
 }
 
-/** Optional filter by Organization Name (exact, case-insensitive). */
-function matchesOrganizationName(c: ExternalContact, orgName: string): boolean {
-  if (!orgName || !orgName.trim()) return true;
-  const want = orgName.trim().toLowerCase();
-  const got = c.externalOrganization?.name?.trim().toLowerCase();
-  return got ? got === want : false;
-}
-
 /** Sort + dedupe for stable UI. */
 function dedupeAndSort(list: DialOption[]): DialOption[] {
   const seen = new Set<string>();
@@ -276,9 +268,10 @@ function dedupeAndSort(list: DialOption[]): DialOption[] {
 // ~1k-contact tenant-wide ceiling that the previous client-side filter hit
 // once total external-contact volume crossed that threshold.
 //
-// The client-side org-name match is retained as a defensive secondary filter
-// in case `q` ever returns a contact whose linked org name does not exactly
-// match the configured value (e.g. token-only fallback in the search index).
+// We trust the server-side q result and do NOT re-filter on
+// externalOrganization.name. The list endpoint returns externalOrganization as
+// a stub ({id, selfUri}) without name, so any client-side name match would
+// reject every entity unnecessarily.
 // ───────────────────────────────────────────────────────────────────────────────
 async function fetchFromExternalContacts(): Promise<DialOption[]> {
   await loginGenesys();
@@ -303,7 +296,8 @@ async function fetchFromExternalContacts(): Promise<DialOption[]> {
   const options: DialOption[] = [];
 
   // diagnostics
-  let total = 0, kept = 0, skippedLabel = 0, skippedValue = 0, skippedOrg = 0, skippedSource = 0;
+  let total = 0, kept = 0, skippedLabel = 0, skippedValue = 0, skippedSource = 0;
+  let loggedOrgShape = false;
 
   for (let i = 0; i < 50; i++) {
     const pageDataUnknown = await (ec as unknown as {
@@ -332,15 +326,19 @@ async function fetchFromExternalContacts(): Promise<DialOption[]> {
       q: qParam || "(none)",
     });
 
+    // One-time diagnostic: confirm what the API actually returns under
+    // externalOrganization so we can validate Genesys's stub vs expanded shape.
+    if (!loggedOrgShape && entities[0]) {
+      loggedOrgShape = true;
+      console.info("[agent-dial]", "external-contacts sample externalOrganization", entities[0].externalOrganization);
+    }
+
     if (entities.length === 0) break;
 
     for (const c of entities) {
       total++;
 
       if (filterSourceId && !matchesExternalSource(c, filterSourceId)) { skippedSource++; continue; }
-      // Defensive secondary check: even with server-side q, drop anything whose
-      // linked org name does not exactly match the configured value.
-      if (useOrgFilter && !matchesOrganizationName(c, orgName)) { skippedOrg++; continue; }
 
       const label = buildLabel(c);
 
@@ -360,7 +358,7 @@ async function fetchFromExternalContacts(): Promise<DialOption[]> {
   }
 
   console.info("[agent-dial]", "external-contacts summary", {
-    total, kept, skippedLabel, skippedValue, skippedOrg, skippedSource,
+    total, kept, skippedLabel, skippedValue, skippedSource,
     orgFilterApplied: useOrgFilter, orgName: useOrgFilter ? orgName || "(empty)" : undefined,
     q: qParam || "(none)",
   });
